@@ -114,12 +114,19 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
 .subbtn:hover{opacity:.9;}.subbtn:active{transform:scale(.99);}
 
 /* ── LIGHTBOX ── */
-#lb{position:fixed;inset:0;z-index:10000;background:rgba(3,2,1,.92);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;opacity:0;pointer-events:none;transition:opacity .3s;padding:20px;}
+#lb{
+  position:absolute;inset:0;z-index:200;
+  background:rgba(3,2,1,.92);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:14px;
+  opacity:0;pointer-events:none;transition:opacity .3s;padding:20px;
+}
 #lb.on{opacity:1;pointer-events:auto;}
-#lb img,#lb canvas{max-width:90vw;max-height:65vh;object-fit:contain;border:1px solid rgba(255,255,255,.1);}
-.lb-nm{color:rgba(255,255,255,.82);font-size:16px;}
-.lb-sb{color:rgba(255,255,255,.4);font-size:12px;letter-spacing:.1em;}
-.lb-x{position:absolute;top:18px;right:22px;background:none;border:none;color:rgba(255,255,255,.55);font-size:28px;cursor:pointer;}
+#lb img,#lb canvas{max-width:80vw;max-height:60vh;object-fit:contain;border:1px solid rgba(255,255,255,.15);}
+.lb-nm{color:rgba(255,255,255,.85);font-size:16px;text-align:center;}
+.lb-sb{color:rgba(255,255,255,.45);font-size:12px;letter-spacing:.1em;text-align:center;}
+.lb-x{position:absolute;top:18px;right:22px;background:none;border:none;color:rgba(255,255,255,.6);font-size:32px;cursor:pointer;line-height:1;}
+.lb-x:hover{color:#fff;}
 
 /* ── TOAST ── */
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(14px);background:#1a1208;color:var(--paper);padding:11px 26px;font-size:13px;letter-spacing:.1em;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;z-index:600;border-top:2px solid var(--gold);}
@@ -208,6 +215,14 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
       <div class="wall-cta-count" id="wc">0건의 마음</div>
       <div class="wall-hint" id="ew">버튼을 눌러 기억의 방에 마음을 남겨주세요</div>
     </div>
+    <!-- LIGHTBOX (pg-wall 안에 absolute로) -->
+    <div id="lb">
+      <button class="lb-x" id="lbX">×</button>
+      <img id="lbi" src="" alt="" style="display:none">
+      <canvas id="lbc" style="display:none"></canvas>
+      <div class="lb-nm" id="lbn"></div>
+      <div class="lb-sb" id="lbs"></div>
+    </div>
   </div>
 </div>
 
@@ -259,14 +274,7 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
   </div>
 </div>
 
-<!-- LIGHTBOX -->
-<div id="lb">
-  <button class="lb-x" id="lbX">×</button>
-  <img id="lbi" src="" alt="" style="display:none">
-  <canvas id="lbc" style="display:none"></canvas>
-  <div class="lb-nm" id="lbn"></div>
-  <div class="lb-sb" id="lbs"></div>
-</div>
+
 
 <div id="toast"></div>
 
