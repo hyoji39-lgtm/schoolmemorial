@@ -719,12 +719,15 @@ function placeOnCell(cell){
   if(cell===null) return;
   if(getUsedCells().has(cell)){toast('이미 다른 마음이 있는 자리예요!');return;}
   if(!pendingEntry){toast('오류: 작품 정보가 없습니다.');return;}
-  pendingEntry.cell=cell;
+  // pendingEntry를 로컬 복사 후 즉시 진행 (closeTilePicker가 null로 바꾸기 전에)
+  const entryToSave = Object.assign({}, pendingEntry, {cell: cell});
   closeTilePicker();
   toast('저장 중...');
-  save(pendingEntry).then(()=>{
-    // Firebase onValue가 자동으로 renderNotes() 호출
+  save(entryToSave).then(()=>{
     toast('📌 기억의 방에 붙었습니다!');
+  }).catch(err=>{
+    console.error('저장 실패:', err);
+    toast('저장 중 오류가 발생했습니다');
   });
 }
 
@@ -758,7 +761,7 @@ function resetModal(){
   document.getElementById('uzZone').style.opacity='';
   finInput.value='';
   document.getElementById('fm').value='';
-  pendingEntry=null;
+  // pendingEntry는 closeTilePicker에서 초기화 (여기서 지우면 안됨)
 }
 
 document.getElementById('subBtn').addEventListener('click',function(){
@@ -773,6 +776,7 @@ document.getElementById('subBtn').addEventListener('click',function(){
     content=upUrl; ctype='image';
   }
 
+  // pendingEntry 먼저 저장 (closeModal/resetModal보다 앞에)
   pendingEntry={
     id: Date.now(),
     msg, content, ctype,
@@ -780,7 +784,8 @@ document.getElementById('subBtn').addEventListener('click',function(){
     date: new Date().toISOString()
   };
 
-  closeModal();
+  // 모달 UI만 닫기 (resetModal 호출 안 함 — pendingEntry 유지)
+  document.getElementById('mbg').classList.remove('on');
   // 모달 닫힌 뒤 피커 열기
   setTimeout(openTilePicker, 350);
 });
