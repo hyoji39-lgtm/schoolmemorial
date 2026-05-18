@@ -125,55 +125,14 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(14px);background:#1a1208;color:var(--paper);padding:11px 26px;font-size:13px;letter-spacing:.1em;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;z-index:600;border-top:2px solid var(--gold);}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
-/* 벽 텍스트 오버레이 */
-#wallText{
-  position:absolute;
-  top:11%;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:3;
-  pointer-events:none;
-  text-align:center;
-  white-space:nowrap;
-  font-family:'Pretendard','Noto Sans KR',sans-serif;
-  font-size:clamp(14px,2.4vw,34px);
-  font-weight:600;
-  letter-spacing:.32em;
-  color:#c8a45a;
-  text-shadow:0 1px 8px rgba(0,0,0,.6);
-  /* 금속 질감 */
-  background:linear-gradient(180deg,#e8c97a 0%,#b8882a 40%,#d4a84b 60%,#9a6e1e 100%);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-clip:text;
-}
+
 /* 피커에도 동일 텍스트 */
-#pickerWallText{
-  position:absolute;
-  top:11%;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:3;
-  pointer-events:none;
-  text-align:center;
-  white-space:nowrap;
-  font-family:'Pretendard','Noto Sans KR',sans-serif;
-  font-size:clamp(14px,2.4vw,34px);
-  font-weight:600;
-  letter-spacing:.32em;
-  background:linear-gradient(180deg,#e8c97a 0%,#b8882a 40%,#d4a84b 60%,#9a6e1e 100%);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-clip:text;
-  opacity:.7;
-}
 </style>
-  <!-- Firebase Realtime Database only (Spark 무료 플랜) -->
+  <!-- Firebase Realtime Database -->
   <script type="module">
     import { initializeApp }        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // ★ Firebase 콘솔 → 프로젝트 개요 → 웹 앱 등록 후 아래 값을 교체하세요
     const firebaseConfig = {
       apiKey:            "AIzaSyBCfmH23Dr_fBvdTatdX3TEQmlZiKalcw0",
       authDomain:        "schoolmemorial-1735d.firebaseapp.com",
@@ -188,32 +147,36 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
     const db  = getDatabase(app);
     const entriesRef = ref(db, 'entries');
 
-    // 실시간으로 entries 로드 → renderNotes 자동 호출
+    // DB 변경 시 실시간 반영
     onValue(entriesRef, (snapshot) => {
       const data = snapshot.val();
       window._entries = data
         ? Object.entries(data)
             .map(([key, val]) => ({ _key: key, ...val }))
-            .sort((a, b) => b.id - a.id)
+            .filter(e => e && typeof e === 'object' && e.id)
+            .sort((a, b) => (b.id||0) - (a.id||0))
         : [];
-      if(typeof renderNotes === 'function') renderNotes();
+      // 일반 script의 renderNotes를 window 경유로 호출
+      if(typeof window.renderNotes === 'function') window.renderNotes();
     }, (err) => {
-      console.error('DB 읽기 오류:', err);
+      console.error('DB 읽기 오류:', err.message);
     });
 
-    // base64 포함 entry 전체를 DB에 직접 push
+    // 저장 함수 - window에 노출
     window.fbSave = async function(entry) {
       try {
-        await push(entriesRef, entry);
+        console.log('FB push 시도, entry size:', JSON.stringify(entry).length, 'bytes');
+        const result = await push(entriesRef, entry);
+        console.log('FB push 성공:', result.key);
         return true;
       } catch(e) {
-        console.error('Firebase 저장 오류:', e);
+        console.error('FB push 실패:', e.code, e.message);
         return false;
       }
     };
 
     window.fbReady = true;
-    console.log('Firebase DB 연결 완료 (Storage 미사용)');
+    console.log('Firebase 연결 완료');
   </script>
 </head>
 <body>
@@ -239,7 +202,6 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
 <div class="page hidden" id="pg-wall">
   <div class="scene" id="scene">
     <div id="wallBg"></div>
-    <div id="wallText">ART BONBON SCHOOL MEMORIAL WALL</div>
     <div id="notes"></div>
     <div class="wall-cta-wrap">
       <button class="wall-cta" id="wallCtaBtn">📌 마음 남기기</button>
@@ -252,7 +214,6 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
 <!-- TILE PICKER -->
 <div id="tilePicker">
   <div id="tilePickerBg"></div>
-  <div id="pickerWallText">ART BONBON SCHOOL MEMORIAL WALL</div>
   <canvas id="tileGrid"></canvas>
   <div class="picker-guide">마음을 붙여주세요</div>
   <button id="tilePickerCancel">취소</button>
@@ -330,22 +291,71 @@ let entries = [];
 
 // Firebase onValue가 window._entries를 채우면 여기서 동기화
 function syncEntries() {
-  if(window._entries) entries = window._entries;
+  if(window._entries) {
+    entries = window._entries;
+  } else {
+    // Firebase 로드 전 localStorage 표시
+    try {
+      const cached = localStorage.getItem('bohun_v6');
+      if(cached) entries = JSON.parse(cached);
+    } catch(e) {}
+  }
 }
 
 async function save(entry) {
+  // 이미지 용량 압축 (Firebase 저장 크기 최소화)
+  if(entry.content && entry.content.startsWith('data:')) {
+    entry.content = await compressImage(entry.content);
+  }
+
+  // fbReady 대기 (최대 5초)
+  let waited = 0;
+  while(!window.fbReady && waited < 5000) {
+    await new Promise(r => setTimeout(r, 200));
+    waited += 200;
+  }
+
+  console.log('fbReady:', window.fbReady, 'fbSave:', !!window.fbSave);
+
   if(window.fbReady && window.fbSave) {
-    // Firebase에 저장 (base64 포함 전체)
-    // Spark 무료: DB 1GB, 동시접속 100명
-    const ok = await window.fbSave(entry);
-    if(!ok) {
-      toast('저장 오류 — 로컬에 임시 저장합니다');
+    try {
+      const ok = await window.fbSave(entry);
+      if(!ok) {
+        toast('저장 실패 — 다시 시도해주세요');
+        _localFallback(entry);
+      }
+    } catch(err) {
+      console.error('save 오류:', err);
+      toast('오류: ' + err.message);
       _localFallback(entry);
     }
   } else {
-    // Firebase 미설정 시 localStorage fallback
+    console.warn('Firebase 미연결 — 로컬 저장');
+    toast('Firebase 연결 안됨 — 로컬 저장');
     _localFallback(entry);
   }
+}
+
+// 이미지 압축 (최대 400x400, 품질 0.7)
+async function compressImage(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if(w > MAX || h > MAX) {
+        const ratio = Math.min(MAX/w, MAX/h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 
 function _localFallback(entry) {
@@ -417,11 +427,12 @@ function goWall(){
 
 // ══ 그리드 유틸 ══
 function cellToXY(idx){
+  if(idx === null || idx === undefined || isNaN(idx)) return null;
   const sc=document.getElementById('scene');
   const W=sc.offsetWidth||window.innerWidth;
   const H=sc.offsetHeight||window.innerHeight;
   const c=idx%G_COLS, r=Math.floor(idx/G_COLS);
-  if(c>=G_COLS||r>=G_ROWS) return null;
+  if(c<0||c>=G_COLS||r<0||r>=G_ROWS) return null;
   return{
     x: G_XS[c]/100*W,
     y: G_YS[r]/100*H,
@@ -432,7 +443,9 @@ function cellToXY(idx){
 
 function getUsedCells(){
   const s=new Set();
-  entries.forEach(e=>{if(e.cell!==undefined) s.add(e.cell);});
+  entries.forEach(e=>{
+    if(e && e.cell !== undefined && e.cell !== null && !isNaN(e.cell)) s.add(e.cell);
+  });
   return s;
 }
 
@@ -448,11 +461,14 @@ function renderNotes(){
   if(!entries.length) return;
 
   entries.forEach(function(e,i){
-    // 구버전: cell 없으면 배정
-    if(e.cell===undefined){
-      e.cell=((i*3+1)%G_COLS)+(((i*5+2)%G_ROWS)*G_COLS);
+    // null/undefined/불완전 데이터 방어
+    if(!e || typeof e !== 'object') return;
+    if(!e.content && !e.contentUrl) return;  // 내용 없는 항목 스킵
+    // cell 없으면 인덱스 기반 배정
+    if(e.cell === undefined || e.cell === null) {
+      e.cell = ((i*3+1) % G_COLS) + (((i*5+2) % G_ROWS) * G_COLS);
     }
-    const p=cellToXY(e.cell);
+    const p = cellToXY(e.cell);
     if(!p) return;
     const tilt=TILTS[i%TILTS.length];
 
@@ -508,6 +524,8 @@ function renderNotes(){
     cont.appendChild(wrap);
   });
 }
+
+window.renderNotes = renderNotes;  // Firebase module에서 호출 가능하게
 
 // ══ NOTE COLORS ══
 const NCOLS=[
