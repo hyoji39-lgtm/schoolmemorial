@@ -45,7 +45,7 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
 /* ── WALL ── */
 #pg-wall{overflow:hidden;}
 .scene{position:absolute;inset:0;}
-#wallBg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;}
+#wallBg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center top;}
 #notes{position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none;}
 .note{pointer-events:auto;}
 
@@ -67,7 +67,7 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
 
 /* ── TILE PICKER ── */
 #tilePicker{display:none;position:fixed;inset:0;z-index:450;}
-#tilePickerBg{position:absolute;inset:0;background-size:cover;background-position:center;filter:brightness(.6);}
+#tilePickerBg{position:absolute;inset:0;background-size:cover;background-position:center top;filter:brightness(.6);}
 #tileGrid{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;}
 .picker-guide{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;padding:12px 28px;border-radius:999px;font-size:14px;letter-spacing:.08em;white-space:nowrap;pointer-events:none;z-index:2;border:1px solid rgba(255,255,255,.2);}
 #tilePickerCancel{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);color:#fff;padding:12px 32px;border-radius:999px;font-size:14px;cursor:pointer;letter-spacing:.08em;backdrop-filter:blur(6px);}
@@ -305,7 +305,7 @@ function syncEntries() {
 async function save(entry) {
   // 이미지 용량 압축 (Firebase 저장 크기 최소화)
   if(entry.content && entry.content.startsWith('data:')) {
-    entry.content = await compressImage(entry.content);
+    entry.content = await compressImage(entry.content, entry.ctype);
   }
 
   // fbReady 대기 (최대 5초)
@@ -337,11 +337,11 @@ async function save(entry) {
 }
 
 // 이미지 압축 (최대 400x400, 품질 0.7)
-async function compressImage(dataUrl) {
+async function compressImage(dataUrl, ctype) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const MAX = 400;
+      const MAX = 500;
       let w = img.width, h = img.height;
       if(w > MAX || h > MAX) {
         const ratio = Math.min(MAX/w, MAX/h);
@@ -350,8 +350,14 @@ async function compressImage(dataUrl) {
       }
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
-      cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(cv.toDataURL('image/jpeg', 0.7));
+      const ctx = cv.getContext('2d');
+      // draw 타입은 흰 배경 깔기 (투명 → jpeg 변환 시 검정 방지)
+      if(ctype === 'draw') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL('image/jpeg', 0.8));
     };
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
@@ -558,8 +564,12 @@ const dc=document.getElementById('drawCv'),dCtx=dc.getContext('2d');
 let drawing=false,lx=0,ly=0,hasDrawn=false,inkC='#1a1208',bSz=6;
 
 function syncCanvas(){
+  if(hasDrawn) return;  // 이미 그리는 중이면 리사이즈 금지 (내용 지워짐)
   const r=dc.getBoundingClientRect();
-  if(r.width>0){dc.width=Math.round(r.width);dc.height=Math.round(r.height)||155;}
+  if(r.width>0 && Math.round(r.width) !== dc.width){
+    dc.width=Math.round(r.width);
+    dc.height=Math.round(r.height)||155;
+  }
 }
 function getXY(e){
   const r=dc.getBoundingClientRect();
@@ -770,6 +780,10 @@ document.getElementById('subBtn').addEventListener('click',function(){
 
   if(activeTab==='hand'){
     if(!hasDrawn){toast('캔버스에 직접 써주세요!');return;}
+    // 실제 픽셀 있는지 확인 (빈 캔버스 방지)
+    const imgData=dc.getContext('2d').getImageData(0,0,dc.width,dc.height).data;
+    const hasPixel=imgData.some((v,i)=>i%4!==3&&v>0);
+    if(!hasPixel){toast('캔버스가 비어있어요. 다시 써주세요!');hasDrawn=false;return;}
     content=dc.toDataURL('image/png'); ctype='draw';
   }else{
     if(!upUrl){toast('이미지를 업로드해주세요!');return;}
