@@ -45,7 +45,13 @@ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#000;}
 /* ── WALL ── */
 #pg-wall{overflow:hidden;}
 .scene{position:absolute;inset:0;}
-#wallBg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center top;}
+#wallBg{position:absolute;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 50%, rgba(255,200,210,0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 80% at 80% 10%, rgba(180,220,235,0.6) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 60% 90%, rgba(210,190,230,0.4) 0%, transparent 50%),
+    linear-gradient(160deg, #c8dce8 0%, #e8d8e0 40%, #f0e8ec 65%, #dce8f0 100%);
+  background-size:cover;background-position:center top;}
 #notes{position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none;}
 .note{pointer-events:auto;}
 
